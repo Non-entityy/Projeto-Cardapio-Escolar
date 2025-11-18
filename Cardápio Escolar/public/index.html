@@ -129,7 +129,7 @@ function renderWeek(){
   const weekKey = weekKeyFromDate(currentWeekStart);
   const weekPlan = getWeekPlan(weekKey);
   const start = new Date(currentWeekStart);
-  const end = new Date(currentWeekStart); end.setDate(end.getDate() + 6);
+  const end = new Date(currentWeekStart); end.setDate(end.getDate() + 4); // friday
   document.getElementById('weekLabel').textContent = `Semana ${formatDate(start)} — ${formatDate(end)}`;
 
   if(!weekPlan){
@@ -141,8 +141,8 @@ function renderWeek(){
     return;
   }
 
-  // weekPlan expected: {dayIndex: {cafe: mealId, almoco: mealId, jantar: mealId}, ...}
-  for(let i=0;i<7;i++){
+  // weekPlan expected: {dayIndex: {cafe: mealId, almoco: mealId, lanche: mealId}, ...}
+  for(let i=0;i<5;i++){
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     const card = document.createElement('div');
@@ -151,13 +151,13 @@ function renderWeek(){
     const dayPlan = weekPlan[dayKey] || {};
     const dateBox = document.createElement('div');
     dateBox.className = 'date';
-    dateBox.textContent = `${['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'][i]} • ${formatDate(d)}`;
+    dateBox.textContent = `${['Seg','Ter','Qua','Qui','Sex'][i]} • ${formatDate(d)}`;
     card.appendChild(dateBox);
 
     const times = [
-      {k:'cafe', label:'Café da Manhã', emoji:'🌅'},
-      {k:'almoco', label:'Almoço', emoji:'🍽️'},
-      {k:'jantar', label:'Jantar', emoji:'🌙'}
+      {k:'cafe', label:'Café da Manhã'},
+      {k:'almoco', label:'Almoço'},
+      {k:'lanche', label:'Lanche'}
     ];
 
     let totalDayCalories = 0;
@@ -166,7 +166,7 @@ function renderWeek(){
       const meal = meals.find(m=>m.id === mealId);
       const mm = document.createElement('div');
       mm.className = 'meal-title';
-      mm.innerHTML = `<div>${t.emoji} ${t.label}</div><div class="small"> ${meal ? meal.group || '' : '—'}</div>`;
+      mm.innerHTML = `<div> ${t.label}</div><div class="small"> ${meal ? meal.group || '' : '—'}</div>`;
       card.appendChild(mm);
 
       if(meal){
@@ -207,15 +207,15 @@ function renderWeek(){
     // create a sample week using these meals
     const key = weekKeyFromDate(new Date());
     weeks[key] = {};
-    for(let i=0;i<7;i++){
-      weeks[key][i] = {cafe:'m1', almoco:'m3', jantar:'m4'};
+    for(let i=0;i<5;i++){
+      weeks[key][i] = {cafe:'m1', almoco:'m3', lanche:'m4'};
     }
     localStorage.setItem(LS_WEEKS, JSON.stringify(weeks));
   }
 })();
 
 renderWeek();
-
+/*localStorage.clear();*/
 </script>
 </body>
 </html>

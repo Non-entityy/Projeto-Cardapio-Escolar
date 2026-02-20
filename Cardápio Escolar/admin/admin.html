@@ -30,6 +30,8 @@ body{margin:0;background:#f4f7f6;padding:18px}
 .preview-card{background:#fff;padding:10px;border-radius:8px;border:1px solid #f0f0f0}
 .footer{margin-top:10px;font-size:13px;color:var(--muted)}
 @media(max-width:980px){.layout{grid-template-columns:1fr;}}
+.clear-data-btn{position:fixed;bottom:20px;right:20px;background:var(--danger);color:#fff;padding:12px 18px;border-radius:50px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(229,57,53,0.4);font-weight:600;z-index:1000;transition:all 0.3s ease}
+.clear-data-btn:hover{background:#c62828;box-shadow:0 6px 16px rgba(229,57,53,0.6);transform:translateY(-2px)}
 </style>
 </head>
 <body>
@@ -85,8 +87,9 @@ body{margin:0;background:#f4f7f6;padding:18px}
       <div class="small">Selecione as refeições já cadastradas para cada dia e período (Segunda → Domingo).</div>
 
       <div style="margin-top:10px">
-        <label class="small">Semana de referência:</label>
+        <label class="small">Semana de referência (selecione qualquer data da semana desejada):</label>
         <input id="weekStart" type="date" class="input" style="max-width:220px" />
+        <div id="weekInfo" class="small" style="margin-top:4px;color:var(--primary);font-weight:600"></div>
       </div>
 
       <div style="margin-top:8px" id="weekBuilder"></div>
@@ -110,6 +113,8 @@ body{margin:0;background:#f4f7f6;padding:18px}
 
   </div>
 </div>
+
+<button class="clear-data-btn" id="clearDataBtn">🗑️ Limpar Dados</button>
 
 <script>
 /*
@@ -227,7 +232,7 @@ function renderWeekBuilder(){
   for(let i=0;i<5;i++){
     const block = document.createElement('div'); block.style.marginTop='10px';
     block.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${days[i]}</div>`;
-    ['cafe','almoco','lache'].forEach(period=>{
+    ['cafe','almoco','lanche'].forEach(period=>{
       const wrap = document.createElement('div'); wrap.style.marginBottom='6px';
       const sel = document.createElement('select'); sel.className='input'; sel.dataset.day=i; sel.dataset.period=period;
       const optEmpty = document.createElement('option'); optEmpty.value=''; optEmpty.textContent='— Selecionar —'; sel.appendChild(optEmpty);
@@ -261,20 +266,69 @@ function renderWeekBuilder(){
 function startOfWeekLocal(d){
   // returns monday date object for the week of d
   const dd = new Date(d);
-  const day = dd.getDay();
-  const diff = dd.getDate() - day + (day === 0 ? -6 : 1);
+  // dd.setHours(0, 0, 0, 0); // Removido para evitar desvio de fuso horário
+  let day = dd.getDay(); // 0=domingo, 1=segunda, ..., 6=sábado
+  
+  // O cálculo correto para começar na segunda-feira é:
+  // Se for domingo (0), subtrai 6 dias.
+  // Se for segunda (1), subtrai 0 dias.
+  // Se for terça (2), subtrai 1 dia.
+  // Se for sábado (6), subtrai 5 dias.
+  const diff = dd.getDate() - (day === 0 ? 6 : day - 1);
+  
   return new Date(dd.setDate(diff));
 }
 function weekKeyFromInput(){
   const v = weekStartInput.value;
   if(!v) return ''; 
-  // ensure we convert to monday (if user selected any date)
-  const dd = new Date(v);
+  // Força a interpretação da data no fuso horário local (T12:00:00) para evitar desvios
+  const dd = new Date(v + 'T12:00:00');
   const monday = startOfWeekLocal(dd);
-  return monday.toISOString().slice(0,10);
+  const y = monday.getFullYear();
+  const m = (monday.getMonth() + 1).toString().padStart(2, '0');
+  const d = monday.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
-weekStartInput.addEventListener('change', renderWeekBuilder);
+weekStartInput.addEventListener('change', ()=>{
+  updateWeekInfo();
+  renderWeekBuilder();
+});
+
+function updateWeekInfo(){
+  const v = weekStartInput.value;
+  const weekInfo = document.getElementById('weekInfo');
+  if(!v){ 
+    weekInfo.textContent = '';
+    return; 
+  }
+  
+  // 1. Cria a data de forma segura (T12:00:00)
+  const dd = new Date(v + 'T12:00:00');
+  
+  // 2. Calcula a segunda-feira correta
+  const monday = startOfWeekLocal(dd);
+  
+  // 3. Calcula a sexta-feira (4 dias após a segunda)
+  const friday = new Date(monday);
+  friday.setDate(friday.getDate() + 4);
+  
+  // 4. Formata a data para exibição
+  const formatBR = (d) => {
+    const day = d.getDate().toString().padStart(2,'0');
+    const month = (d.getMonth()+1).toString().padStart(2,'0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+  
+  // 5. Gera a chave (usando a lógica local correta)
+  const y = monday.getFullYear();
+  const m = (monday.getMonth() + 1).toString().padStart(2, '0');
+  const d = monday.getDate().toString().padStart(2, '0');
+  const key = `${y}-${m}-${d}`;
+  
+  weekInfo.innerHTML = `📅 Semana: ${formatBR(monday)} a ${formatBR(friday)} (Chave: ${key})`;
+}
 
 function renderPreview(){
   previewGrid.innerHTML = '';
@@ -324,7 +378,7 @@ saveWeekBtn.addEventListener('click', ()=>{
   weeks[key] = obj;
   saveWeeks(weeks);
   renderWeeksList();
-  alert('Semana salva com sucesso.');
+  alert(`✅ Semana salva com sucesso!\n\nChave da semana: ${key}\n\nAgora você pode visualizar este cardápio no Visualizador Semanal navegando até esta data.`);
 });
 
 dupWeekBtn.addEventListener('click', ()=>{
@@ -332,7 +386,7 @@ dupWeekBtn.addEventListener('click', ()=>{
   if(!key || !weeks[key]){ alert('Selecione e salve uma semana primeiro para duplicar.'); return; }
   // create new key one week after
   const monday = new Date(key);
-  monday.setDate(monday.getDate() + 5);
+  monday.setDate(monday.getDate() + 7);
   const newKey = monday.toISOString().slice(0,10);
   weeks[newKey] = JSON.parse(JSON.stringify(weeks[key]));
   saveWeeks(weeks);
@@ -411,9 +465,13 @@ function importJSON(){
 function weekKeyFromInput(){ return weekKeyFromInputLocal(weekStartInput.value); }
 function weekKeyFromInputLocal(v){
   if(!v) return '';
-  const dd = new Date(v);
-  const mon = startOfWeekLocal(dd).toISOString().slice(0,10);
-  return mon;
+  // Força a interpretação da data no fuso horário local (T12:00:00) para evitar desvios
+  const dd = new Date(v + 'T12:00:00');
+  const mon = startOfWeekLocal(dd);
+  const y = mon.getFullYear();
+  const m = (mon.getMonth() + 1).toString().padStart(2, '0');
+  const d = mon.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function initSeedIfEmpty(){
@@ -438,6 +496,16 @@ function initSeedIfEmpty(){
 }
 
 initSeedIfEmpty();
+updateWeekInfo();
+
+// Botão Limpar Dados
+document.getElementById('clearDataBtn').addEventListener('click', ()=>{
+  if(confirm('⚠️ ATENÇÃO: Isso irá apagar TODOS os dados salvos (refeições e semanas).\n\nDeseja realmente continuar?')){
+    localStorage.clear();
+    alert('✅ Todos os dados foram limpos com sucesso!');
+    location.reload();
+  }
+});
 
 </script>
 </body>

@@ -32,6 +32,8 @@ body{margin:0;background:linear-gradient(180deg,#f0fbf5,#eef7f1);color:#222;padd
 .link-admin{font-size:13px;color:var(--primary);text-decoration:none;margin-left:10px}
 .search{padding:8px;border-radius:8px;border:1px solid #ddd}
 @media(max-width:600px){.header{flex-direction:column;align-items:flex-start;gap:10px}}
+.clear-data-btn{position:fixed;bottom:20px;right:20px;background:#e53935;color:#fff;padding:12px 18px;border-radius:50px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(229,57,53,0.4);font-weight:600;z-index:1000;transition:all 0.3s ease}
+.clear-data-btn:hover{background:#c62828;box-shadow:0 6px 16px rgba(229,57,53,0.6);transform:translateY(-2px)}
 </style>
 </head>
 <body>
@@ -56,6 +58,8 @@ body{margin:0;background:linear-gradient(180deg,#f0fbf5,#eef7f1);color:#222;padd
     <span class="small">Nota:</span> Para editar refeições e configurações do cardápio, use o painel administrativo. Os dados são persistidos no seu navegador (LocalStorage).
   </div>
 </div>
+
+<button class="clear-data-btn" id="clearDataBtn">🗑️ Limpar Dados</button>
 
 <script>
 /*
@@ -85,8 +89,16 @@ function loadWeeks(){
 // date helpers
 function startOfWeek(date){
   const d = new Date(date);
-  const day = d.getDay(); // 0=domingo
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when sunday
+  // d.setHours(0, 0, 0, 0); // Removido para evitar desvio de fuso horário
+  let day = d.getDay(); // 0=domingo, 1=segunda, ..., 6=sábado
+  
+  // O cálculo correto para começar na segunda-feira é:
+  // Se for domingo (0), subtrai 6 dias.
+  // Se for segunda (1), subtrai 0 dias.
+  // Se for terça (2), subtrai 1 dia.
+  // Se for sábado (6), subtrai 5 dias.
+  const diff = d.getDate() - (day === 0 ? 6 : day - 1);
+  
   return new Date(d.setDate(diff));
 }
 function formatDate(d){
@@ -96,8 +108,14 @@ function formatDate(d){
   return `${dd}/${mm}/${yy}`;
 }
 function weekKeyFromDate(date){
-  const s = startOfWeek(date);
-  return s.toISOString().slice(0,10); // e.g. "2025-11-17"
+  // Garante que a data seja tratada como local antes de calcular a segunda-feira
+  // Se for string (do input), usa T12:00:00 para forçar local no meio do dia.
+  const d = (typeof date === 'string') ? new Date(date + 'T12:00:00') : new Date(date);
+  const s = startOfWeek(d);
+  const y = s.getFullYear();
+  const m = (s.getMonth() + 1).toString().padStart(2, '0');
+  const dd = s.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 let currentWeekStart = startOfWeek(new Date());
@@ -124,6 +142,10 @@ function getWeekPlan(key){
 
 // UI
 function renderWeek(){
+  // Recarregar dados do localStorage para garantir sincronização
+  meals = loadMeals();
+  weeks = loadWeeks();
+  
   const grid = document.getElementById('menuGrid');
   grid.innerHTML = '';
   const weekKey = weekKeyFromDate(currentWeekStart);
@@ -136,7 +158,7 @@ function renderWeek(){
     // empty state
     const emptyCard = document.createElement('div');
     emptyCard.className = 'card';
-    emptyCard.innerHTML = `<div class="empty"><strong>Nenhum cardápio salvo para esta semana.</strong><div class="small">Abra o Painel Admin → Montar Cardápio → Salvar semana para testar.</div></div>`;
+    emptyCard.innerHTML = `<div class="empty"><strong>Nenhum cardápio salvo para esta semana.</strong><div class="small">Semana: ${weekKey}<br>Abra o Painel Admin → Selecione a data de referência → Monte o cardápio → Clique em "Salvar Semana".</div></div>`;
     grid.appendChild(emptyCard);
     return;
   }
@@ -215,7 +237,16 @@ function renderWeek(){
 })();
 
 renderWeek();
-/*localStorage.clear();*/
+
+// Botão Limpar Dados
+document.getElementById('clearDataBtn').addEventListener('click', ()=>{
+  if(confirm('⚠️ ATENÇÃO: Isso irá apagar TODOS os dados salvos (refeições e semanas).\n\nDeseja realmente continuar?')){
+    localStorage.clear();
+    alert('✅ Todos os dados foram limpos com sucesso!');
+    location.reload();
+  }
+});
+
 </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-const API = "http://localhost:8000";
+//const API = "http://localhost:8000";
+const API = "https://ideal-fiesta-97ww64jgxw5w37q96-8000.app.github.dev/";
 
 if(localStorage.getItem("role") !== "admin"){
     window.location.href = "login.html";
